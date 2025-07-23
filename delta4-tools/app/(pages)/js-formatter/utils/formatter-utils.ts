@@ -21,6 +21,9 @@ export function formatCode(code: string, options: FormatterOptions): FormatterRe
       case 'tsx':
         formatted = formatTSX(code, options);
         break;
+      case 'json':
+        formatted = formatJSON(code, options);
+        break;
       default:
         formatted = formatJavaScript(code, options);
     }
@@ -385,6 +388,104 @@ function formatJSXCode(code: string, options: FormatterOptions, isTypeScript: bo
       .replace(/\s*=>\s*/g, ' => ')
       .replace(/\s*\|\s*/g, ' | ')
       .replace(/\s*&\s*/g, ' & ');
+  }
+  
+  return formatted.trim();
+}
+
+function formatJSON(code: string, options: FormatterOptions): string {
+  try {
+    // First, try to parse the JSON to validate it
+    const parsed = JSON.parse(code);
+    
+    // Use built-in JSON.stringify with proper indentation
+    const indent = options.spaces ? options.indent : '\t';
+    const formatted = JSON.stringify(parsed, null, indent);
+    
+    return formatted;
+  } catch (error) {
+    // If JSON is invalid, try to format it anyway with basic formatting
+    return formatInvalidJSON(code, options);
+  }
+}
+
+function formatInvalidJSON(code: string, options: FormatterOptions): string {
+  const indent = options.spaces ? ' '.repeat(options.indent) : '\t';
+  let formatted = '';
+  let indentLevel = 0;
+  let inString = false;
+  let stringChar = '';
+  
+  for (let i = 0; i < code.length; i++) {
+    const char = code[i];
+    const nextChar = code[i + 1];
+    const prevChar = code[i - 1];
+    
+    // Handle strings
+    if (!inString && (char === '"' || char === "'")) {
+      // Only treat as string start if not escaped
+      if (prevChar !== '\\') {
+        inString = true;
+        stringChar = char;
+      }
+      formatted += char;
+      continue;
+    }
+    
+    if (inString) {
+      formatted += char;
+      if (char === stringChar && prevChar !== '\\') {
+        inString = false;
+        stringChar = '';
+      }
+      continue;
+    }
+    
+    // Handle structural characters
+    if (char === '{' || char === '[') {
+      formatted += char;
+      indentLevel++;
+      if (nextChar !== '}' && nextChar !== ']') {
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+      }
+    } else if (char === '}' || char === ']') {
+      if (prevChar !== '{' && prevChar !== '[') {
+        formatted = formatted.trimEnd();
+        formatted += '\n';
+        indentLevel = Math.max(0, indentLevel - 1);
+        formatted += indent.repeat(Math.max(0, indentLevel));
+      } else {
+        indentLevel = Math.max(0, indentLevel - 1);
+      }
+      formatted += char;
+      
+      // Add newline after closing brace/bracket if there's more content
+      if (nextChar && nextChar !== ',' && nextChar !== '}' && nextChar !== ']' && nextChar.trim()) {
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+      }
+    } else if (char === ',') {
+      formatted += char;
+      // Add newline after comma for better readability
+      if (nextChar && nextChar.trim()) {
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+      }
+    } else if (char === ':') {
+      formatted += char;
+      // Add space after colon
+      if (nextChar !== ' ') {
+        formatted += ' ';
+      }
+    } else if (char === '\n' || char === '\r') {
+      // Skip existing newlines, we'll add our own
+      continue;
+    } else if (char === ' ' || char === '\t') {
+      // Skip existing whitespace, we'll add proper indentation
+      if (!formatted.endsWith(' ') && !formatted.endsWith('\n')) {
+        formatted += ' ';
+      }
+    } else {
+      formatted += char;
+    }
   }
   
   return formatted.trim();
