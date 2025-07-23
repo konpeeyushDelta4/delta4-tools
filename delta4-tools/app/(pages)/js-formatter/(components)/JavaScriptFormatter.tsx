@@ -2,27 +2,36 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Copy, Trash2, Code } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
-import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
+
+import { LanguageType } from '../types';
+import { formatCode } from '../utils/formatter-utils';
+import { getLanguageExtension, getLanguageDisplayName, SUPPORTED_LANGUAGES } from '../utils/codemirror-utils';
 
 export default function JavaScriptFormatter() {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
+  const [language, setLanguage] = useState<LanguageType>('javascript');
   const [indentSize, setIndentSize] = useState(2);
   const [useSpaces, setUseSpaces] = useState(true);
 
-  const formatJavaScript = () => {
-    try {
-      const formatted = formatJS(input, { indent: indentSize, spaces: useSpaces });
-      setOutput(formatted);
-    } catch (error) {
-      setOutput(`Error formatting JavaScript: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const handleFormat = () => {
+    const result = formatCode(input, {
+      language,
+      indent: indentSize,
+      spaces: useSpaces
+    });
+    
+    if (result.success) {
+      setOutput(result.code);
+    } else {
+      setOutput(result.error || 'Unknown formatting error');
     }
   };
 
@@ -45,9 +54,9 @@ export default function JavaScriptFormatter() {
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Code className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold text-foreground">JavaScript Formatter</h1>
+            <h1 className="text-4xl font-bold text-foreground">Code Formatter</h1>
           </div>
-          <p className="text-lg text-muted-foreground">Format and beautify your JavaScript code with ease</p>
+          <p className="text-lg text-muted-foreground">Format and beautify your JavaScript, TypeScript, and React code with ease</p>
         </div>
 
         <Card className="shadow-2xl">
@@ -55,7 +64,25 @@ export default function JavaScriptFormatter() {
             <div className="flex flex-wrap gap-6 items-center justify-between">
               <div className="flex flex-wrap gap-6 items-center">
                 <div className="flex items-center space-x-3">
-                  <Label htmlFor="indentSize" className="text-sm font-medium">
+                  <Label className="text-sm font-medium">
+                    Language:
+                  </Label>
+                  <Select value={language} onValueChange={(value) => setLanguage(value as LanguageType)}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang} value={lang}>
+                          {getLanguageDisplayName(lang)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <Label className="text-sm font-medium">
                     Indent Size:
                   </Label>
                   <Select value={indentSize.toString()} onValueChange={(value) => setIndentSize(Number(value))}>
@@ -83,7 +110,7 @@ export default function JavaScriptFormatter() {
               </div>
 
               <div className="flex space-x-3">
-                <Button onClick={formatJavaScript} className="flex items-center gap-2">
+                <Button onClick={handleFormat} className="flex items-center gap-2">
                   <Code className="h-4 w-4" />
                   Format
                 </Button>
@@ -99,15 +126,15 @@ export default function JavaScriptFormatter() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label className="text-base font-medium">
-                  Input JavaScript
+                  Input {getLanguageDisplayName(language)}
                 </Label>
                 <div className="border border-border rounded-md overflow-hidden">
                   <CodeMirror
                     value={input}
                     onChange={(value) => setInput(value)}
-                    extensions={[javascript()]}
+                    extensions={[getLanguageExtension(language)]}
                     theme={oneDark}
-                    placeholder="Paste your JavaScript code here..."
+                    placeholder={`Paste your ${getLanguageDisplayName(language)} code here...`}
                     height="320px"
                     basicSetup={{
                       lineNumbers: true,
@@ -127,7 +154,7 @@ export default function JavaScriptFormatter() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <Label className="text-base font-medium">
-                    Formatted JavaScript
+                    Formatted {getLanguageDisplayName(language)}
                   </Label>
                   {output && (
                     <Button
@@ -145,7 +172,7 @@ export default function JavaScriptFormatter() {
                   <CodeMirror
                     value={output}
                     editable={false}
-                    extensions={[javascript()]}
+                    extensions={[getLanguageExtension(language)]}
                     theme={oneDark}
                     placeholder="Formatted code will appear here..."
                     height="320px"
@@ -169,112 +196,4 @@ export default function JavaScriptFormatter() {
       </div>
     </div>
   );
-}
-
-function formatJS(code: string, options: { indent: number; spaces: boolean }): string {
-  if (!code.trim()) return '';
-
-  const indent = options.spaces ? ' '.repeat(options.indent) : '\t';
-  let formatted = '';
-  let indentLevel = 0;
-  let inString = false;
-  let stringChar = '';
-  let inComment = false;
-  let inBlockComment = false;
-  
-  for (let i = 0; i < code.length; i++) {
-    const char = code[i];
-    const nextChar = code[i + 1];
-    const prevChar = code[i - 1];
-    
-    if (inBlockComment) {
-      formatted += char;
-      if (char === '*' && nextChar === '/') {
-        formatted += nextChar;
-        i++;
-        inBlockComment = false;
-      }
-      continue;
-    }
-    
-    if (inComment) {
-      formatted += char;
-      if (char === '\n') {
-        inComment = false;
-        formatted += indent.repeat(indentLevel);
-      }
-      continue;
-    }
-    
-    if (!inString && char === '/' && nextChar === '/') {
-      inComment = true;
-      formatted += char;
-      continue;
-    }
-    
-    if (!inString && char === '/' && nextChar === '*') {
-      inBlockComment = true;
-      formatted += char;
-      continue;
-    }
-    
-    if (!inString && (char === '"' || char === "'" || char === '`')) {
-      inString = true;
-      stringChar = char;
-      formatted += char;
-      continue;
-    }
-    
-    if (inString) {
-      formatted += char;
-      if (char === stringChar && prevChar !== '\\') {
-        inString = false;
-        stringChar = '';
-      }
-      continue;
-    }
-    
-    if (char === '{') {
-      formatted += char;
-      indentLevel++;
-      if (nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
-      }
-    } else if (char === '}') {
-      if (prevChar !== '{') {
-        formatted = formatted.trimEnd();
-        formatted += '\n';
-        indentLevel--;
-        formatted += indent.repeat(indentLevel);
-      } else {
-        indentLevel--;
-      }
-      formatted += char;
-      if (nextChar && nextChar !== ';' && nextChar !== ',' && nextChar !== ')' && nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
-      }
-    } else if (char === ';') {
-      formatted += char;
-      if (nextChar && nextChar !== '\n' && nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
-      }
-    } else if (char === ',') {
-      formatted += char;
-      if (nextChar !== ' ' && nextChar !== '\n') {
-        formatted += ' ';
-      }
-    } else if (char === '\n' || char === '\r') {
-      if (formatted.trim() && !formatted.endsWith('\n')) {
-        formatted += '\n' + indent.repeat(indentLevel);
-      }
-    } else if (char === ' ' || char === '\t') {
-      if (!formatted.endsWith(' ') && !formatted.endsWith('\n')) {
-        formatted += ' ';
-      }
-    } else {
-      formatted += char;
-    }
-  }
-  
-  return formatted.trim();
 }
