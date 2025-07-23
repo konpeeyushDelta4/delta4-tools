@@ -31,94 +31,96 @@ export default function JavaScriptFormatter() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">JavaScript Formatter</h1>
-        <p className="text-gray-600">Format and beautify your JavaScript code</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-lg p-6 space-y-4">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center space-x-2">
-            <label htmlFor="indentSize" className="text-sm font-medium text-gray-700">
-              Indent Size:
-            </label>
-            <select
-              id="indentSize"
-              value={indentSize}
-              onChange={(e) => setIndentSize(Number(e.target.value))}
-              className="border border-gray-300 rounded px-2 py-1 text-sm"
-            >
-              <option value={2}>2</option>
-              <option value={4}>4</option>
-              <option value={8}>8</option>
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="useSpaces"
-              checked={useSpaces}
-              onChange={(e) => setUseSpaces(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="useSpaces" className="text-sm font-medium text-gray-700">
-              Use spaces instead of tabs
-            </label>
-          </div>
-
-          <div className="flex space-x-2 ml-auto">
-            <button
-              onClick={formatJavaScript}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium"
-            >
-              Format
-            </button>
-            <button
-              onClick={clearInput}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium"
-            >
-              Clear
-            </button>
-          </div>
+    <div className="min-h-screen bg-background text-foreground dark">
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-foreground mb-2">JavaScript Formatter</h1>
+          <p className="text-muted-foreground">Format and beautify your JavaScript code</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label htmlFor="input" className="block text-sm font-medium text-gray-700">
-              Input JavaScript:
-            </label>
-            <textarea
-              id="input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Paste your JavaScript code here..."
-              className="w-full h-64 p-3 border border-gray-300 rounded-md font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        <div className="bg-card rounded-lg shadow-xl border border-border p-6 space-y-4">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center space-x-2">
+              <label htmlFor="indentSize" className="text-sm font-medium text-card-foreground">
+                Indent Size:
+              </label>
+              <select
+                id="indentSize"
+                value={indentSize}
+                onChange={(e) => setIndentSize(Number(e.target.value))}
+                className="bg-input border border-border text-foreground rounded px-2 py-1 text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
+              >
+                <option value={2}>2</option>
+                <option value={4}>4</option>
+                <option value={8}>8</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="useSpaces"
+                checked={useSpaces}
+                onChange={(e) => setUseSpaces(e.target.checked)}
+                className="rounded bg-input border-border text-primary focus:ring-ring"
+              />
+              <label htmlFor="useSpaces" className="text-sm font-medium text-card-foreground">
+                Use spaces instead of tabs
+              </label>
+            </div>
+
+            <div className="flex space-x-2 ml-auto">
+              <button
+                onClick={formatJavaScript}
+                className="bg-primary hover:bg-primary-dark text-primary-foreground px-4 py-2 rounded text-sm font-medium transition-colors"
+              >
+                Format
+              </button>
+              <button
+                onClick={clearInput}
+                className="bg-secondary hover:bg-muted text-secondary-foreground px-4 py-2 rounded text-sm font-medium transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label htmlFor="output" className="block text-sm font-medium text-gray-700">
-                Formatted JavaScript:
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="input" className="block text-sm font-medium text-card-foreground">
+                Input JavaScript:
               </label>
-              {output && (
-                <button
-                  onClick={copyOutput}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                >
-                  Copy
-                </button>
-              )}
+              <textarea
+                id="input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Paste your JavaScript code here..."
+                className="w-full h-64 p-3 bg-input border border-border text-foreground rounded-md font-mono text-sm resize-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder-muted-foreground"
+              />
             </div>
-            <textarea
-              id="output"
-              value={output}
-              readOnly
-              placeholder="Formatted code will appear here..."
-              className="w-full h-64 p-3 border border-gray-300 rounded-md font-mono text-sm resize-none bg-gray-50"
-            />
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label htmlFor="output" className="block text-sm font-medium text-card-foreground">
+                  Formatted JavaScript:
+                </label>
+                {output && (
+                  <button
+                    onClick={copyOutput}
+                    className="text-primary hover:text-primary-dark text-sm font-medium transition-colors"
+                  >
+                    Copy
+                  </button>
+                )}
+              </div>
+              <textarea
+                id="output"
+                value={output}
+                readOnly
+                placeholder="Formatted code will appear here..."
+                className="w-full h-64 p-3 bg-input border border-border text-foreground rounded-md font-mono text-sm resize-none placeholder-muted-foreground"
+              />
+            </div>
           </div>
         </div>
       </div>
