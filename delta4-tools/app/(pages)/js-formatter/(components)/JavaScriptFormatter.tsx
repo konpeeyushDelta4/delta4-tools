@@ -128,7 +128,7 @@ export default function JavaScriptFormatter() {
                 <Label className="text-base font-medium">
                   Input {getLanguageDisplayName(language)}
                 </Label>
-                <div className="border border-border rounded-md overflow-hidden">
+                <div className="border border-border rounded-md overflow-auto">
                   <CodeMirror
                     value={input}
                     onChange={(value) => setInput(value)}
@@ -168,7 +168,7 @@ export default function JavaScriptFormatter() {
                     </Button>
                   )}
                 </div>
-                <div className="border border-border rounded-md overflow-hidden">
+                <div className="border border-border rounded-md overflow-auto">
                   <CodeMirror
                     value={output}
                     editable={false}
