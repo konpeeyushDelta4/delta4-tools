@@ -1,4 +1,4 @@
-import { FormatterOptions, FormatterResult } from './types';
+import { FormatterOptions, FormatterResult } from '../types';
 
 export function formatCode(code: string, options: FormatterOptions): FormatterResult {
   if (!code.trim()) {
@@ -17,6 +17,9 @@ export function formatCode(code: string, options: FormatterOptions): FormatterRe
         break;
       case 'react':
         formatted = formatReact(code, options);
+        break;
+      case 'tsx':
+        formatted = formatTSX(code, options);
         break;
       default:
         formatted = formatJavaScript(code, options);
@@ -60,7 +63,7 @@ function formatJavaScript(code: string, options: FormatterOptions): string {
       formatted += char;
       if (char === '\n') {
         inComment = false;
-        formatted += indent.repeat(indentLevel);
+        formatted += indent.repeat(Math.max(0, indentLevel));
       }
       continue;
     }
@@ -97,25 +100,25 @@ function formatJavaScript(code: string, options: FormatterOptions): string {
       formatted += char;
       indentLevel++;
       if (nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
       }
     } else if (char === '}') {
       if (prevChar !== '{') {
         formatted = formatted.trimEnd();
         formatted += '\n';
-        indentLevel--;
-        formatted += indent.repeat(indentLevel);
+        indentLevel = Math.max(0, indentLevel - 1);
+        formatted += indent.repeat(Math.max(0, indentLevel));
       } else {
-        indentLevel--;
+        indentLevel = Math.max(0, indentLevel - 1);
       }
       formatted += char;
       if (nextChar && nextChar !== ';' && nextChar !== ',' && nextChar !== ')' && nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
       }
     } else if (char === ';') {
       formatted += char;
       if (nextChar && nextChar !== '\n' && nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
       }
     } else if (char === ',') {
       formatted += char;
@@ -124,7 +127,7 @@ function formatJavaScript(code: string, options: FormatterOptions): string {
       }
     } else if (char === '\n' || char === '\r') {
       if (formatted.trim() && !formatted.endsWith('\n')) {
-        formatted += '\n' + indent.repeat(indentLevel);
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
       }
     } else if (char === ' ' || char === '\t') {
       if (!formatted.endsWith(' ') && !formatted.endsWith('\n')) {
@@ -139,25 +142,40 @@ function formatJavaScript(code: string, options: FormatterOptions): string {
 }
 
 function formatTypeScript(code: string, options: FormatterOptions): string {
-  // Enhanced formatting for TypeScript with type annotations
+  // Enhanced TypeScript formatting with type handling
+  const indent = options.spaces ? ' '.repeat(options.indent) : '\t';
   let formatted = formatJavaScript(code, options);
   
-  // Additional TypeScript-specific formatting can be added here
-  // For now, we use the JavaScript formatter as base since TS is a superset
+  // Additional TypeScript-specific formatting
+  formatted = formatted
+    .replace(/:\s*([^,\s\n\)]+)/g, ': $1') // Fix type annotation spacing
+    .replace(/\s*=>\s*/g, ' => ') // Fix arrow function spacing
+    .replace(/\s*\|\s*/g, ' | ') // Fix union type spacing
+    .replace(/\s*&\s*/g, ' & '); // Fix intersection type spacing
   
   return formatted;
 }
 
 function formatReact(code: string, options: FormatterOptions): string {
-  // Enhanced formatting for React/JSX
+  return formatJSXCode(code, options, false);
+}
+
+function formatTSX(code: string, options: FormatterOptions): string {
+  return formatJSXCode(code, options, true);
+}
+
+function formatJSXCode(code: string, options: FormatterOptions, isTypeScript: boolean): string {
   const indent = options.spaces ? ' '.repeat(options.indent) : '\t';
   let formatted = '';
   let indentLevel = 0;
-  let inJSX = false;
+  let inJSXTag = false;
+  let inJSXExpression = false;
+  let jsxExpressionDepth = 0;
   let inString = false;
   let stringChar = '';
   let inComment = false;
   let inBlockComment = false;
+  let jsxTagStack: string[] = [];
   
   for (let i = 0; i < code.length; i++) {
     const char = code[i];
@@ -179,7 +197,9 @@ function formatReact(code: string, options: FormatterOptions): string {
       formatted += char;
       if (char === '\n') {
         inComment = false;
-        formatted += indent.repeat(indentLevel);
+        if (!inJSXTag && !inJSXExpression) {
+          formatted += indent.repeat(Math.max(0, indentLevel));
+        }
       }
       continue;
     }
@@ -213,60 +233,158 @@ function formatReact(code: string, options: FormatterOptions): string {
       continue;
     }
     
-    // Handle JSX tags
-    if (char === '<' && nextChar && /[A-Za-z]/.test(nextChar)) {
-      inJSX = true;
-      formatted += char;
-    } else if (inJSX && char === '>') {
-      inJSX = false;
-      formatted += char;
-      if (nextChar && nextChar !== '<') {
-        formatted += '\n' + indent.repeat(indentLevel);
-      }
-    } else if (char === '{') {
-      formatted += char;
-      if (!inJSX) {
-        indentLevel++;
-        if (nextChar !== '}') {
-          formatted += '\n' + indent.repeat(indentLevel);
-        }
-      }
-    } else if (char === '}') {
-      if (!inJSX) {
-        if (prevChar !== '{') {
-          formatted = formatted.trimEnd();
-          formatted += '\n';
-          indentLevel--;
-          formatted += indent.repeat(indentLevel);
+    // Handle JSX opening/closing tags
+    if (char === '<' && !inJSXExpression) {
+      const tagMatch = code.slice(i).match(/^<\/?([A-Za-z][A-Za-z0-9]*)/);
+      if (tagMatch) {
+        const isClosingTag = code[i + 1] === '/';
+        const tagName = tagMatch[1];
+        
+        if (isClosingTag) {
+          // Closing tag - decrease indent
+          if (jsxTagStack.length > 0 && jsxTagStack[jsxTagStack.length - 1] === tagName) {
+            indentLevel = Math.max(0, indentLevel - 1);
+            formatted = formatted.trimEnd();
+            formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+            jsxTagStack.pop();
+          }
         } else {
-          indentLevel--;
+          // Opening tag - might increase indent later
+          formatted = formatted.trimEnd();
+          if (formatted && !formatted.endsWith('\n')) {
+            formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+          }
+        }
+        
+        inJSXTag = true;
+        formatted += char;
+        continue;
+      }
+    }
+    
+    // Handle JSX tag closing
+    if (inJSXTag && char === '>') {
+      inJSXTag = false;
+      formatted += char;
+      
+      // Check if it's a self-closing tag
+      const isSelfClosing = prevChar === '/';
+      
+      if (!isSelfClosing) {
+        // Extract tag name from recent formatted content
+        const tagMatch = formatted.match(/<([A-Za-z][A-Za-z0-9]*)(?:\s|>)/g);
+        if (tagMatch) {
+          const lastTag = tagMatch[tagMatch.length - 1];
+          const tagName = lastTag.match(/^<([A-Za-z][A-Za-z0-9]*)/)?.[1];
+          if (tagName) {
+            jsxTagStack.push(tagName);
+            indentLevel++;
+          }
+        }
+        
+        // Add newline for content
+        if (nextChar && nextChar !== '<' && nextChar.trim()) {
+          formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
         }
       }
-      formatted += char;
-      if (!inJSX && nextChar && nextChar !== ';' && nextChar !== ',' && nextChar !== ')' && nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
+      continue;
+    }
+    
+    // Handle JSX expressions
+    if (!inJSXTag && char === '{') {
+      if (inJSXExpression) {
+        jsxExpressionDepth++;
+      } else {
+        inJSXExpression = true;
+        jsxExpressionDepth = 1;
       }
-    } else if (char === ';') {
+      formatted += char;
+      continue;
+    }
+    
+    if (inJSXExpression && char === '}') {
+      jsxExpressionDepth--;
+      if (jsxExpressionDepth === 0) {
+        inJSXExpression = false;
+      }
+      formatted += char;
+      continue;
+    }
+    
+    // Handle regular braces (JavaScript/TypeScript code)
+    if (!inJSXTag && !inJSXExpression && char === '{') {
+      formatted += char;
+      indentLevel++;
+      if (nextChar !== '}') {
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+      }
+      continue;
+    }
+    
+    if (!inJSXTag && !inJSXExpression && char === '}') {
+      if (prevChar !== '{') {
+        formatted = formatted.trimEnd();
+        formatted += '\n';
+        indentLevel = Math.max(0, indentLevel - 1);
+        formatted += indent.repeat(Math.max(0, indentLevel));
+      } else {
+        indentLevel = Math.max(0, indentLevel - 1);
+      }
+      formatted += char;
+      if (nextChar && nextChar !== ';' && nextChar !== ',' && nextChar !== ')' && nextChar !== '}') {
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
+      }
+      continue;
+    }
+    
+    // Handle semicolons
+    if (char === ';' && !inJSXTag && !inJSXExpression) {
       formatted += char;
       if (nextChar && nextChar !== '\n' && nextChar !== '}') {
-        formatted += '\n' + indent.repeat(indentLevel);
+        formatted += '\n' + indent.repeat(Math.max(0, indentLevel));
       }
-    } else if (char === ',') {
+      continue;
+    }
+    
+    // Handle commas
+    if (char === ',' && !inJSXTag) {
       formatted += char;
       if (nextChar !== ' ' && nextChar !== '\n') {
         formatted += ' ';
       }
-    } else if (char === '\n' || char === '\r') {
+      continue;
+    }
+    
+    // Handle newlines
+    if (char === '\n' || char === '\r') {
       if (formatted.trim() && !formatted.endsWith('\n')) {
-        formatted += '\n' + indent.repeat(indentLevel);
+        formatted += '\n';
+        if (!inJSXTag && !inJSXExpression) {
+          formatted += indent.repeat(Math.max(0, indentLevel));
+        }
       }
-    } else if (char === ' ' || char === '\t') {
+      continue;
+    }
+    
+    // Handle spaces and tabs
+    if (char === ' ' || char === '\t') {
       if (!formatted.endsWith(' ') && !formatted.endsWith('\n')) {
         formatted += ' ';
       }
-    } else {
-      formatted += char;
+      continue;
     }
+    
+    // Default case
+    formatted += char;
+  }
+  
+  // Apply TypeScript-specific formatting if needed
+  if (isTypeScript) {
+    formatted = formatted
+      .replace(/:\s*([^,\s\n\)]+)/g, ': $1')
+      .replace(/\s*=>\s*/g, ' => ')
+      .replace(/\s*\|\s*/g, ' | ')
+      .replace(/\s*&\s*/g, ' & ');
   }
   
   return formatted.trim();
